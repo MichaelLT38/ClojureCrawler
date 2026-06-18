@@ -39,6 +39,15 @@
 (defn describe-objects [loc objs obj-loc]
   (map (fn [obj] (str "You see a " obj " on the floor.")) (objects-at loc objs obj-loc)))
 
+(defn show-result [result]
+  (when result
+    (doseq [line result]
+      (println line))))
+
+(defn first-arg-symbol [args]
+  (when-let [arg (first args)]
+    (symbol arg)))
+
 ;; Core functions
 (defn look []
   (concat (describe-location *location* *nodes*)
@@ -53,13 +62,18 @@
       ["You cannot go that way."])))
 
 (defn pickup [object]
-  (if (some #(= % object) (objects-at *location* *objects* *object-locations*))
+  (cond
+    (nil? object) ["Usage: pickup <object>."]
+    (some #(= % object) (objects-at *location* *objects* *object-locations*))
     (do (alter-var-root #'*object-locations* (fn [locs] (assoc locs object 'body)))
-        (str "You are now carrying the " object "."))
-    ["You cannot get that."]))
+        [(str "You are now carrying the " object ".")])
+    :else ["You cannot get that."]))
 
 (defn inventory []
-  (cons 'items- (objects-at 'body *objects* *object-locations*)))
+  (let [items (objects-at 'body *objects* *object-locations*)]
+    (if (seq items)
+      [(str "You are carrying: " (str/join ", " items))]
+      ["You are not carrying anything."])))
 
 
 ;; Custom REPL function
@@ -69,17 +83,19 @@
     (print "> ")
     (flush)
     (let [input (read-line)
-          [cmd & args] (str/split input #" ")]
+          [cmd & args] (when input (str/split (str/trim input) #"\s+"))]
       ;; Handle commands
-      (case cmd
-        "look" (println (look))
-        "inventory" (println (inventory))
-        "walk" (println (walk (keyword (first args))))
-        "pickup" (println (pickup (keyword (first args))))
-        "exit" (println "Goodbye!")
-        (println "Unknown command."))
-      ;; Continue loop unless 'exit' command is given
-      (when (not= cmd "exit")
+      (if (nil? input)
+        (println "Goodbye!")
+        (case cmd
+          "look" (show-result (look))
+          "inventory" (show-result (inventory))
+          "walk" (show-result (walk (first-arg-symbol args)))
+          "pickup" (show-result (pickup (first-arg-symbol args)))
+          "exit" (println "Goodbye!")
+          (println "Unknown command.")))
+      ;; Continue loop unless 'exit' command is given or input ended
+      (when (and input (not= cmd "exit"))
         (recur)))))
 
 (defn start-game []
