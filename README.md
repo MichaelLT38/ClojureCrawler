@@ -42,6 +42,14 @@ To rebuild the standalone jar:
 clj -T:build uber
 ```
 
+To build a standalone jar for the **GUI** version:
+
+```powershell
+clj -T:build gui-uber
+```
+
+This produces `target/clojure-crawler-0.1.0-gui-standalone.jar`, which you can launch with `java -jar`. It bundles cljfx and the JavaFX libraries for your platform, so the GUI jar is platform-specific (built on Windows, it runs on Windows).
+
 ## Commands
 
 Type commands at the `>` prompt.
