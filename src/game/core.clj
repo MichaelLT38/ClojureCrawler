@@ -265,7 +265,7 @@
     [state ["Nothing happens."]]))
 
 ;; ---------------------------------------------------------------------------
-;; Command dispatch (pure) + REPL shell
+;; Command dispatch (pure)
 ;; ---------------------------------------------------------------------------
 
 (defn- normalize
@@ -300,26 +300,3 @@
         "examine"   [state (examine state a)]
         "exit"      [(assoc state :quit true) ["Goodbye!"]]
         [state ["Unknown command. Type 'help' for a list of commands."]]))))
-
-(defn show-result [lines]
-  (doseq [line lines]
-    (println line)))
-
-(defn game-repl [state]
-  (print "> ")
-  (flush)
-  (let [input (read-line)]
-    (if (nil? input)
-      (println "Goodbye!")
-      (let [[new-state lines] (handle-command state input)]
-        (show-result lines)
-        (when-not (:quit new-state)
-          (recur new-state))))))
-
-(defn start-game []
-  (println "Welcome to Clojure Crawler!")
-  (println "Type 'help' for a list of commands.")
-  (println)
-  (let [state (new-game)]
-    (show-result (look state))
-    (game-repl state)))

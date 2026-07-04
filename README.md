@@ -26,6 +26,16 @@ If you want to run it from source during development, you can also use:
 clj -M:run
 ```
 
+### Graphical (GUI) version
+
+There is also a small terminal-style window built with [cljfx](https://github.com/cljfx/cljfx) (JavaFX). It shares all of its game logic with the console version. Run it from source with:
+
+```powershell
+clj -M:gui
+```
+
+The first launch downloads cljfx and the JavaFX libraries for your platform. Type commands into the input field and press Enter (or click **Send**); **New game** restarts.
+
 To rebuild the standalone jar:
 
 ```powershell
