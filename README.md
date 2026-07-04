@@ -4,9 +4,11 @@ A small text-based dungeon crawler written in Clojure. It is a learning project 
 
 ## What the game is
 
-You start in a tiny world made up of a living room, garden, and attic. From there, you can explore rooms, read the descriptions, move between locations, pick up items, and check what you are carrying.
+You start in a tiny world made up of a living room, garden, and attic. From there, you can explore rooms, read the descriptions, move between locations, pick up items, use items on things, and check what you are carrying.
 
-It is intentionally simple and does not have a win condition yet. The focus is on learning Clojure and experimenting with a classic text-adventure style game loop.
+There is now a goal: solve a short puzzle to unlock a hidden room and step through a portal to escape and win.
+
+The focus is on learning Clojure and experimenting with a classic text-adventure style game loop.
 
 ## How to run it
 
@@ -15,7 +17,7 @@ You need Java installed to run the release jar.
 From the project root, launch the packaged game with:
 
 ```powershell
-java -jar .\clojure-crawler-0.1.0-standalone.jar
+java -jar .\target\clojure-crawler-0.1.0-standalone.jar
 ```
 
 If you want to run it from source during development, you can also use:
@@ -37,8 +39,21 @@ Type commands at the `>` prompt.
 - `look` - Describe your current location, exits, and nearby items.
 - `walk <direction>` - Move to another room, such as `walk west` or `walk upstairs`.
 - `pickup <object>` - Pick up an object in the room, such as `pickup whiskey`.
+- `drop <object>` - Drop a carried object. A two-object form like `drop frog bucket` puts the frog into the bucket.
+- `use <item> <target>` - Use an item on something, such as `use rope bucket` or `use key door`.
+- `examine <object>` - Look closely at an item to read its description.
 - `inventory` - Show what you are carrying.
+- `help` - List all commands.
 - `exit` - Quit the game.
+
+### Shorthands
+
+- `l` = `look`, `i` = `inventory`, `x` = `examine`, `get` = `pickup`, `h` = `help`, `q` / `quit` = `exit`.
+- Directions can be typed on their own: `west` (or `w`), `east` (`e`), `upstairs` (`u`), `downstairs` (`d`), etc.
+
+## Goal
+
+Escape the dungeon. There is a locked door in the attic; find a way to open it and reach the portal beyond. If you get stuck, explore, `examine` things, and think about what the items in the world might do together.
 
 ## Examples
 
