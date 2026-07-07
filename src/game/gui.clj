@@ -9,7 +9,10 @@
   (:require [clojure.string :as str]
             [cljfx.api :as fx]
             [game.core :as core])
-  (:import [javafx.scene.effect FloatMap]))
+  (:import [javafx.application Platform]
+           [javafx.beans.value ChangeListener]
+           [javafx.scene.control TextArea]
+           [javafx.scene.effect FloatMap]))
 
 ;; ---------------------------------------------------------------------------
 ;; Application state
@@ -39,16 +42,20 @@
   (swap! *state assoc :input event))
 
 (defmethod handle-event ::submit [_]
-  (swap! *state
-         (fn [{:keys [game input log] :as state}]
-           (let [trimmed (str/trim (or input ""))]
-             (if (empty? trimmed)
-               state
-               (let [[game' lines] (core/handle-command game trimmed)]
-                 (assoc state
-                        :game  game'
-                        :input ""
-                        :log   (append-log log trimmed lines))))))))
+  (let [{:keys [game input log] :as state} @*state
+        trimmed (str/trim (or input ""))]
+    (when (seq trimmed)
+      (let [[game' lines] (core/handle-command game trimmed)]
+        (reset! *state (assoc state
+                              :game  game'
+                              :input ""
+                              :log   (append-log log trimmed lines)))
+        (when (:quit game')
+          ;; Show "Goodbye!" for a moment so the player can read it,
+          ;; then close the window.
+          (future
+            (Thread/sleep 3000)
+            (Platform/runLater #(Platform/exit))))))))
 
 (defmethod handle-event ::new-game [_]
   (reset! *state (initial-state)))
@@ -94,6 +101,37 @@
                 "rgba(0,0,0,0.0) 0%, rgba(0,0,0,0.0) 50%, "
                 "rgba(0,0,0,0.32) 51%, rgba(0,0,0,0.32) 100%)")}})
 
+;; Stylesheet (as a self-contained data URI) that hides the text-area's
+;; scroll bars, since the log auto-scrolls and never needs manual scrolling.
+(def ^:private crt-css
+  (let [css (str ".text-area .scroll-bar:vertical,"
+                 ".text-area .scroll-bar:horizontal {"
+                 "-fx-pref-width:0; -fx-pref-height:0;"
+                 "-fx-max-width:0; -fx-max-height:0;"
+                 "-fx-opacity:0; -fx-padding:0; }"
+                 ".text-area .corner { -fx-opacity:0; -fx-padding:0; }")]
+    (str "data:text/css;base64,"
+         (.encodeToString (java.util.Base64/getEncoder)
+                          (.getBytes css "UTF-8")))))
+
+(defn- auto-scroll
+  "Wrap a text-area description so it scrolls to the bottom whenever its text
+  changes. When cljfx replaces the text, JavaFX relayouts and scrolls back to
+  the caret (the top). We defer with a nested runLater so setScrollTop runs on
+  the pulse *after* that relayout, landing on the newest line."
+  [desc]
+  {:fx/type    fx/ext-on-instance-lifecycle
+   :on-created (fn [^TextArea ta]
+                 (.addListener (.textProperty ta)
+                               (reify ChangeListener
+                                 (changed [_ _ _ _]
+                                   (Platform/runLater
+                                     (fn []
+                                       (.positionCaret ta (.getLength ta))
+                                       (Platform/runLater
+                                         #(.setScrollTop ta Double/MAX_VALUE))))))))
+   :desc       desc})
+
 ;; ---------------------------------------------------------------------------
 ;; Views
 ;; ---------------------------------------------------------------------------
@@ -112,15 +150,17 @@
    :on-action event})
 
 (defn root-view [{:keys [log input game]}]
-  (let [won? (boolean (:won game))]
+  (let [won?  (boolean (:won game))
+        done? (or won? (boolean (:quit game)))]
     {:fx/type :stage
      :showing true
      :title   "Clojure Crawler"
      :width   660
      :height  520
      :scene
-     {:fx/type :scene
-      :fill    :black
+     {:fx/type     :scene
+      :fill        :black
+      :stylesheets [crt-css]
       :root
       {:fx/type :v-box
        :spacing 8
@@ -142,21 +182,22 @@
                        :scale-x   1.0
                        :scale-y   1.0}
          :children
-         [{:fx/type      :text-area
-           :editable     false
-           :wrap-text    true
-           :focus-traversable false
-           :text         (str/join "\n" log)
-           :style        {:-fx-control-inner-background screen-bg
-                          :-fx-background-color screen-bg
-                          :-fx-text-fill phosphor
-                          :-fx-font-family mono
-                          :-fx-font-size 14
-                          :-fx-highlight-fill phosphor-dim
-                          :-fx-highlight-text-fill phosphor-bright
-                          :-fx-focus-color "transparent"
-                          :-fx-faint-focus-color "transparent"}
-           :effect       {:fx/type :glow :level 0.55}}
+         [(auto-scroll
+            {:fx/type      :text-area
+             :editable     false
+             :wrap-text    true
+             :focus-traversable false
+             :text         (str/join "\n" log)
+             :style        {:-fx-control-inner-background screen-bg
+                            :-fx-background-color screen-bg
+                            :-fx-text-fill phosphor
+                            :-fx-font-family mono
+                            :-fx-font-size 36
+                            :-fx-highlight-fill phosphor-dim
+                            :-fx-highlight-text-fill phosphor-bright
+                            :-fx-focus-color "transparent"
+                            :-fx-faint-focus-color "transparent"}
+             :effect       {:fx/type :glow :level 0.55}})
           scanlines]}
         {:fx/type  :h-box
          :spacing  8
@@ -164,14 +205,14 @@
          [{:fx/type          :text-field
            :h-box/hgrow      :always
            :text             input
-           :disable          won?
+           :disable          done?
            :prompt-text      "Type a command and press Enter..."
            :style            {:-fx-control-inner-background screen-bg
                               :-fx-background-color screen-bg
                               :-fx-text-fill phosphor
                               :-fx-prompt-text-fill phosphor-dim
                               :-fx-font-family mono
-                              :-fx-font-size 14
+                              :-fx-font-size 36
                               :-fx-highlight-fill phosphor-dim
                               :-fx-border-color phosphor-dim
                               :-fx-border-width 1
@@ -181,7 +222,7 @@
                               :-fx-faint-focus-color "transparent"}
            :on-text-changed  {:event/type ::input-changed}
            :on-action        {:event/type ::submit}}
-          (crt-button "Send" {:event/type ::submit} won?)
+          (crt-button "Send" {:event/type ::submit} done?)
           (crt-button "New game" {:event/type ::new-game} false)]}]}}}))
 
 ;; ---------------------------------------------------------------------------
