@@ -2,6 +2,8 @@
 
 A small text-based dungeon crawler written in Clojure. It is a learning project inspired by [Land of Lisp](https://www.amazon.com/Land-Lisp-Learn-Program-Game/dp/1593272812) and designed to run entirely in the terminal.
 
+![Screenshot](images/screenshot.png)
+
 ## What the game is
 
 You start in a tiny world made up of a living room, garden, and attic. From there, you can explore rooms, read the descriptions, move between locations, pick up items, use items on things, and check what you are carrying.
