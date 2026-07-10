@@ -34,7 +34,10 @@
    :frog    {:desc "A slippery green frog. It eyes you warily."}
    :chain   {:desc "A length of rusty chain."}
    :rope    {:desc "A long, sturdy coil of rope."}
-   :key     {:desc "A small brass key."}})
+   :key     {:desc "A small brass key."}
+   :sword   {:desc "A crude iron sword, still warm from the forge."}
+   :torch   {:desc "A giant welding torch bolted to the attic floor."}
+   :wizard  {:desc "A wizard, snoring loudly on the couch."}})
 
 ;; ---------------------------------------------------------------------------
 ;; Command aliases / shorthands
@@ -66,7 +69,8 @@
    :object-locations (initial-object-locations rooms)
    :flags            #{}
    :quit             false
-   :won              false})
+   :won              false
+   :lost             false})
 
 ;; ---------------------------------------------------------------------------
 ;; Query helpers (pure)
@@ -89,7 +93,14 @@
 ;; ---------------------------------------------------------------------------
 
 (defn describe-location [state]
-  [(get-in state [:rooms (:location state) :desc])])
+  (let [loc (:location state)
+        base (get-in state [:rooms loc :desc])]
+    (cond
+      (and (= loc :living-room) (contains? (:flags state) :wizard-dead))
+      ["You are in the living-room. The wizard lies motionless on the couch."]
+
+      :else
+      [base])))
 
 (defn describe-path [dir exit]
   (str "There is a " (:via exit) " going " (name dir) " from here."
@@ -114,19 +125,32 @@
       [(str "You are carrying: " (str/join ", " (map name items)))]
       ["You are not carrying anything."])))
 
+(defn- scenery-here?
+  "True for fixed room features that can be examined or used as targets."
+  [state item]
+  (case item
+    :torch  (= (:location state) :attic)
+    :wizard (= (:location state) :living-room)
+    :well   (= (:location state) :garden)
+    :door   (#{:attic :living-room :garden :portal-room} (:location state))
+    false))
+
 (defn examine [state item]
   (cond
     (nil? item)
     ["Usage: examine <object>."]
 
-    (not (item-accessible? state item))
-    ["You don't see that here."]
+    (and (= item :wizard) (contains? (:flags state) :wizard-dead)
+         (= (:location state) :living-room))
+    ["The wizard is dead. His snoring has stopped forever."]
 
-    (get-in objects [item :desc])
-    [(get-in objects [item :desc])]
+    (or (item-accessible? state item) (scenery-here? state item))
+    (if-let [desc (get-in objects [item :desc])]
+      [desc]
+      [(str "You see nothing special about the " (name item) ".")])
 
     :else
-    [(str "You see nothing special about the " (name item) ".")]))
+    ["You don't see that here."]))
 
 (defn help [_]
   ["Available commands:"
@@ -162,12 +186,27 @@
         (let [dest  (:to exit)
               moved (assoc state :location dest)]
           (if (= dest :portal-room)
-            [(assoc moved :won true :quit true)
-             (vec (concat (look moved)
-                          [""
-                           "You step into the shimmering portal..."
-                           "Light engulfs you, and the dungeon fades away."
-                           "*** YOU ESCAPED. YOU WIN! ***"]))]
+            (let [look-lines (look moved)
+                  cursed?    (contains? (:flags state) :wizard-dead)]
+              (if cursed?
+                [(assoc moved :lost true :quit true)
+                 (vec (concat look-lines
+                              [""
+                               "You step into the shimmering portal..."
+                               "The light twists. Something cold follows you through."
+                               "A whisper threads the void - the wizard's dying curse:"
+                               "  \"Wherever you flee, this prison follows.\""
+                               "You tumble out into endless grey fog. No sky. No door back."
+                               "Freedom, of a sort. And a sentence that never ends."
+                               ""
+                               "*** YOU ESCAPED... BUT THE CURSE CAME WITH YOU. ***"
+                               "*** BAD ENDING ***"]))]
+                [(assoc moved :won true :quit true)
+                 (vec (concat look-lines
+                              [""
+                               "You step into the shimmering portal..."
+                               "Light engulfs you, and the dungeon fades away."
+                               "*** YOU ESCAPED. YOU WIN! ***"]))]))
             [moved (look moved)]))))))
 
 (defn pickup [state item]
@@ -260,6 +299,48 @@
            (update-in [:rooms :attic :exits :north] dissoc :locked)
            (assoc-in [:object-locations :key] :gone))
        ["You turn the brass key. The iron door unlocks with a heavy clunk."]])
+
+    ;; Weld the chain into a sword with the attic torch (either word order).
+    (or (and (= a :chain) (= b :torch))
+        (and (= a :torch) (= b :chain)))
+    (cond
+      (not= (:location state) :attic)
+      [state ["There is no welding torch here."]]
+
+      (contains? (:flags state) :sword-forged)
+      [state ["You've already forged a sword."]]
+
+      (not (item-accessible? state :chain))
+      [state ["You don't have a chain."]]
+
+      :else
+      [(-> state
+           (update :flags conj :sword-forged)
+           (assoc-in [:object-locations :chain] :gone)
+           (assoc-in [:object-locations :sword] :inventory))
+       ["You heat the rusty chain in the giant welding torch."
+        "Sparks fly. When it cools, you hold a crude iron sword."]])
+
+    ;; Slay the snoring wizard (either word order).
+    ;; Does not end the game; sets :wizard-dead so the portal escape becomes a bad ending.
+    (or (and (= a :sword) (= b :wizard))
+        (and (= a :wizard) (= b :sword)))
+    (cond
+      (not= (:location state) :living-room)
+      [state ["There is no wizard here."]]
+
+      (not (item-accessible? state :sword))
+      [state ["You don't have a sword."]]
+
+      (contains? (:flags state) :wizard-dead)
+      [state ["The wizard is already dead."]]
+
+      :else
+      [(update state :flags conj :wizard-dead)
+       ["You raise the crude sword and strike."
+        "The wizard's snoring stops forever."
+        "As he dies, a green spark leaps from his lips and sinks into your chest."
+        "Something cold settles behind your ribs. You feel watched."]])
 
     :else
     [state ["Nothing happens."]]))

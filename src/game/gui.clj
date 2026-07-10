@@ -51,11 +51,12 @@
                               :input ""
                               :log   (append-log log trimmed lines)))
         (when (:quit game')
-          ;; Show "Goodbye!" for a moment so the player can read it,
-          ;; then close the window.
-          (future
-            (Thread/sleep 3000)
-            (Platform/runLater #(Platform/exit))))))))
+          ;; Give the player time to read the final message, then close.
+          ;; Win text is longer, so wait ~20s; a plain quit stays short.
+          (let [ms (if (or (:won game') (:lost game')) 20000 3000)]
+            (future
+              (Thread/sleep ms)
+              (Platform/runLater #(Platform/exit)))))))))
 
 (defmethod handle-event ::new-game [_]
   (reset! *state (initial-state)))
