@@ -1,6 +1,6 @@
 # Clojure Crawler
 
-A small text-based dungeon crawler written in Clojure. It is a learning project inspired by [Land of Lisp](https://www.amazon.com/Land-Lisp-Learn-Program-Game/dp/1593272812) and designed to run entirely in the terminal.
+A small text-based dungeon crawler written in Clojure. It is a learning project inspired by [Land of Lisp](https://www.amazon.com/Land-Lisp-Learn-Program-Game/dp/1593272812) and designed to run entirely in the terminal. Requires [OpenJDK](https://openjdk.org/).
 
 ![Screenshot](images/screenshot.png)
 
